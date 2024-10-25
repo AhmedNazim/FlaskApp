@@ -10,8 +10,26 @@ on:
 
 jobs:
   test:
+      runs-on: ubuntu-latest
+      
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v3
+
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+        - name: Run unit tests
+          run: |
+            pytest
+  build:
     runs-on: ubuntu-latest
-    
+    container:
+      image: python:3.13
+      options: --entrypoint "/bin/bash"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,16 +39,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests
+      - name: Run tests
         run: |
           pytest
 
-
   docker_build_and_push:
-    needs: [test] 
+    needs: build
     runs-on: ubuntu-latest
-    if: success() 
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -41,20 +57,9 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Login to Private Docker Registry
-        run: |
-          echo "${{ secrets.PRIVATE_REGISTRY_PASSWORD }}" | docker login ${{ secrets.PRIVATE_REGISTRY_URL }} -u "${{ secrets.PRIVATE_REGISTRY_USERNAME }}" --password-stdin
-
-      - name: Build Docker image
+      - name: Build and push Docker image to Docker Hub
         run: |
           docker build -t nazimgaoua9/flask-app:latest .
-
-      - name: Tag and push Docker image to Docker Hub
-        run: |
-          docker tag nazimgaoua9/flask-app:latest nazimgaoua9/flask-app:latest
           docker push nazimgaoua9/flask-app:latest
 
-      - name: Tag and push Docker image to Private Registry
-        run: |
-          docker tag nazimgaoua9/flask-app:latest ${{ secrets.PRIVATE_REGISTRY_URL }}/nazimgaoua9/flask-app:latest
-          docker push ${{ secrets.PRIVATE_REGISTRY_URL }}/nazimgaoua9/flask-app:latest
+
