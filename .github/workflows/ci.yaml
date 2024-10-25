@@ -9,13 +9,9 @@ on:
       - main
 
 jobs:
-  build:
-    runs-on: ubuntu-latest 
-
-    container:
-      image: python:3.13  
-      options: --entrypoint "/bin/bash"  
-
+  test:
+    runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,13 +21,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           pytest
+          
+      - name: Send notification if tests fail
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.example.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: CI Pipeline - Test Failure
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: ci-pipeline@example.com
+          body: The unit tests have failed. Please check the logs.
 
   docker_build_and_push:
-    needs: build
+    needs: [test] 
     runs-on: ubuntu-latest
+    if: success() 
 
     steps:
       - name: Checkout code
@@ -43,7 +53,20 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker image to Docker Hub
+      - name: Login to Private Docker Registry
+        run: |
+          echo "${{ secrets.PRIVATE_REGISTRY_PASSWORD }}" | docker login ${{ secrets.PRIVATE_REGISTRY_URL }} -u "${{ secrets.PRIVATE_REGISTRY_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
         run: |
           docker build -t nazimgaoua9/flask-app:latest .
+
+      - name: Tag and push Docker image to Docker Hub
+        run: |
+          docker tag nazimgaoua9/flask-app:latest nazimgaoua9/flask-app:latest
           docker push nazimgaoua9/flask-app:latest
+
+      - name: Tag and push Docker image to Private Registry
+        run: |
+          docker tag nazimgaoua9/flask-app:latest ${{ secrets.PRIVATE_REGISTRY_URL }}/nazimgaoua9/flask-app:latest
+          docker push ${{ secrets.PRIVATE_REGISTRY_URL }}/nazimgaoua9/flask-app:latest
