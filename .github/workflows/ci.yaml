@@ -24,19 +24,7 @@ jobs:
       - name: Run unit tests
         run: |
           pytest
-          
-      - name: Send notification if tests fail
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.example.com
-          server_port: 587
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: CI Pipeline - Test Failure
-          to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: ci-pipeline@example.com
-          body: The unit tests have failed. Please check the logs.
+
 
   docker_build_and_push:
     needs: [test] 
